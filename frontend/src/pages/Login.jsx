@@ -7,8 +7,8 @@ import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 
 export default function Login() {
-  const [email, setEmail] = useState("admin@restaurant.jp");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const nav = useNavigate();
@@ -95,9 +95,9 @@ export default function Login() {
             {submitting ? "Signing in…" : "Sign In"}
           </Button>
 
-          <p className="text-xs text-[#8A817C]">
+          {/* <p className="text-xs text-[#8A817C]">
             Demo: admin@restaurant.jp · admin123
-          </p>
+          </p> */}
         </form>
       </div>
     </div>

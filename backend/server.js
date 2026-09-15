@@ -4,12 +4,14 @@
 // ----------------------------------------------------------------------------
 require("dotenv").config();
 
+
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { MongoClient } = require("mongodb");
 const { randomUUID } = require("crypto");
+const path = require("path");
 
 const PORT = 8001;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -583,6 +585,12 @@ api.get(
 );
 
 app.use("/api", api);
+
+app.use(express.static(path.join(__dirname, "../frontend/build")));
+
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/build/index.html"));
+});
 
 // Centralised error handler
 app.use((err, _req, res, _next) => {
