@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import api, { formatJPY } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Receipt, Download, FileSpreadsheet } from "lucide-react";
+import { Receipt, Download, FileSpreadsheet, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 
 // Returns the date string (YYYY-MM-DD) relevant to an order's current status.
@@ -30,19 +30,39 @@ export default function Reservations() {
   const [selected, setSelected] = useState(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const knownOrderIds = useRef(new Set());
+  const hasLoadedOrders = useRef(false);
 
   const load = async () => {
     try {
       const { data } = await api.get("/orders");
+      // Inside load(), after fetching data:
+      const newOrders = hasLoadedOrders.current
+        ? data.filter(
+            (order) =>
+              !knownOrderIds.current.has(order.id) &&
+              ["new_order", "ordered", "unpaid"].includes(order.status)
+          )
+        : [];
+
+      newOrders.forEach((order) => {
+        toast.success(
+          `New order: Table #${order.table_number} · ${formatJPY(order.total)}`
+        );
+      });
+
+      data.forEach((order) => knownOrderIds.current.add(order.id));
+      hasLoadedOrders.current = true;
       setOrders(data);
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to load orders. Is the backend running?");
+      toast.error(err?.response?.data?.detail || "Failed to load orders");
       setOrders([]);
     }
   };
+
   useEffect(() => {
     load();
-    const t = setInterval(load, 10000);
+    const t = setInterval(load, 7500);
     return () => clearInterval(t);
   }, []);
 
@@ -61,8 +81,14 @@ export default function Reservations() {
   };
 
   const statusFiltered = filter === "all"
-    ? orders
-    : orders.filter((o) => (filter === "unpaid" ? ["unpaid", "ordered"].includes(o.status) : o.status === filter));
+  ? orders
+  : orders.filter((order) => {
+      if (filter === "new_order") {
+        return ["new_order", "ordered", "unpaid"].includes(order.status);
+      }
+      if (filter === "prepared_order") return order.status === "prepared_order";
+      return order.status === filter;
+    });
 
   const filtered = statusFiltered.filter((o) => {
     if (!dateFrom && !dateTo) return true;
@@ -365,12 +391,50 @@ export default function Reservations() {
     toast.success("Sales report exported (Excel)");
   };
 
+  const deleteOrder = async (order) => {
+    const confirmed = window.confirm(
+      `Permanently delete the order for Table #${order.table_number} on ${format(new Date(order.start_time), "MMM d, HH:mm")}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/orders/${order.id}`);
+      toast.success("Order deleted");
+      if (selected?.id === order.id) setSelected(null);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to delete order");
+    }
+  };
+
+  const normalizeOrderStatus = (status) =>
+  ["ordered", "unpaid"].includes(status) ? "new_order" : status;
+
   const activeCount = orders.filter((o) => o.status === "unpaid" || o.status === "ordered").length;
   const paidCount = orders.filter((o) => o.status === "paid").length;
   const completeCount = orders.filter((o) => o.status === "complete").length;
   const todaysRevenue = orders
     .filter((o) => ["paid", "complete"].includes(o.status))
     .reduce((s, o) => s + (o.total || 0), 0);
+
+  const groupedItems = useMemo(() => {
+    if (!selected?.items) return [];
+
+    const groups = new Map();
+
+    selected.items.forEach((item) => {
+      const key = item.added_at ? format(new Date(item.added_at), "MMM d, HH:mm") : "Unknown";
+      const group = groups.get(key) || [];
+
+      group.push(item);
+      groups.set(key, group);
+    });
+
+    return Array.from(groups.entries()).map(([addedAt, items]) => ({
+      addedAt,
+      items,
+    }));
+  }, [selected]);
 
   return (
     <div className="p-4 md:p-8 lg:p-12 fade-up" data-testid="reservations-page">
@@ -397,7 +461,8 @@ export default function Reservations() {
       <div className="flex gap-2 mb-6">
         {[
           { v: "all", l: "All" },
-          { v: "unpaid", l: "Unpaid" },
+          { v: "new_order", l: "New" },
+          { v: "prepared_order", l: "Prepared" },
           { v: "paid", l: "Paid" },
           { v: "complete", l: "Complete" },
         ].map((b) => (
@@ -498,10 +563,23 @@ export default function Reservations() {
                   <StatusBadge status={o.status} />
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => setSelected(o)} data-testid={`order-detail-${o.id}`}
-                    className="inline-flex items-center gap-1 text-xs text-[#5C4033] hover:text-[#C93A3E]">
-                    <Receipt size={14} /> View
-                  </button>
+                  <div className="flex justify-end gap-4">
+                    <button
+                      onClick={() => setSelected(o)}
+                      data-testid={`order-detail-${o.id}`}
+                      className="inline-flex items-center gap-1 text-xs text-[#5C4033] hover:text-[#C93A3E]"
+                    >
+                      <Receipt size={14} /> View
+                    </button>
+                    <button
+                      onClick={() => deleteOrder(o)}
+                      data-testid={`order-delete-${o.id}`}
+                      aria-label={`Delete order for Table ${o.table_number}`}
+                      className="inline-flex items-center gap-1 text-xs text-[#8A817C] hover:text-[#C93A3E]"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -558,14 +636,29 @@ export default function Reservations() {
               <div className="divider-sumi" />
               <div>
                 <div className="label-eyebrow mb-3">Items</div>
-                <div className="space-y-2">
-                  {selected.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <div>
-                        <span className="font-medium">{it.quantity}×</span> {it.name}
-                        {it.note && <span className="text-[#8A817C] ml-2">({it.note})</span>}
+                <div className="space-y-4">
+                  {groupedItems.map(({ addedAt, items }) => (
+                    <div key={addedAt} className="space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-[#8A817C]">
+                        Added at {format(new Date(addedAt), "HH:mm")}
                       </div>
-                      <div className="font-serif-jp">{formatJPY(it.price * it.quantity)}</div>
+
+                      {items.map((item, index) => (
+                        <div
+                          key={`${addedAt}-${index}`}
+                          className="flex justify-between text-sm"
+                        >
+                          <div>
+                            <span className="font-medium">{item.quantity}×</span> {item.name}
+                              {item.note && (
+                            <span className="text-[#8A817C] ml-2">({item.note})</span>
+                              )}
+                          </div>
+                          <div className="font-serif-jp">
+                            {formatJPY(item.price * item.quantity)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
@@ -576,27 +669,43 @@ export default function Reservations() {
                 <div className="font-serif-jp text-3xl">{formatJPY(selected.total)}</div>
               </div>
 
-              {selected.status === "unpaid" || selected.status === "ordered" ? (
+              {normalizeOrderStatus(selected.status) === "new_order" && (
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={() => markStatus(selected, "paid", "verified")} variant="outline"
-                    className="flex-1 rounded-sm h-11" data-testid="admin-pay-cashier">
+                  <Button
+                    onClick={() => markStatus(selected, "prepared_order")}
+                    className="btn-aka flex-1 rounded-sm h-11"
+                    data-testid="admin-mark-prepared"
+                  >
+                    Mark Prepared
+                  </Button>
+                </div>
+              )}
+
+              {normalizeOrderStatus(selected.status) === "prepared_order" && (
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={() => markStatus(selected, "paid", "verified")}
+                    variant="outline"
+                    className="flex-1 rounded-sm h-11"
+                    data-testid="admin-pay-cashier"
+                  >
                     Verify Paid
                   </Button>
                 </div>
-              ) : null}
-              {selected.status === "paid" && (
+              )}
+              {normalizeOrderStatus(selected.status) === "paid" && (
                 <div className="flex gap-2 pt-4">
                   <Button onClick={() => markStatus(selected, "complete")} className="btn-aka flex-1 rounded-sm h-11" data-testid="admin-complete">
                     Mark Complete
                   </Button>
                 </div>
               )}
-              {selected.status === "complete" && (
+              {normalizeOrderStatus(selected.status) === "complete" && (
                 <div className="text-xs text-[#8A817C]">
                   Order completed.
                 </div>
               )}
-              {selected.status === "paid" && selected.payment_method && (
+              {normalizeOrderStatus(selected.status) === "paid" && selected.payment_method && (
                 <div className="text-xs text-[#8A817C]">
                   {selected.payment_method === "verified" ? "Verified by staff." : `Paid via ${selected.payment_method}.`}
                 </div>
@@ -619,18 +728,29 @@ function StatCard({ label, value, mono, testId }) {
 }
 
 function StatusBadge({ status }) {
-  const normalized = status === "ordered" ? "unpaid" : status;
-  const isPaid = normalized === "paid";
-  const isComplete = normalized === "complete";
+  const normalized = ["ordered", "unpaid"].includes(status)
+  ? "new_order"
+  : status;
+
+  const styles = {
+    new_order: "bg-[#FDF6E3] text-[#8B5A2B]",
+    prepared_order: "bg-[#E8F1F5] text-[#2F5D6C]",
+    paid: "bg-[#F2F4EC] text-[#54662C]",
+    complete: "bg-[#EEF2F7] text-[#425466]",
+  };
+
+  const labels = {
+    new_order: "New Order",
+    prepared_order: "Prepared",
+    paid: "Paid",
+    complete: "Complete",
+  };
+
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-      isComplete
-        ? "bg-[#EEF2F7] text-[#425466]"
-        : isPaid
-          ? "bg-[#F2F4EC] text-[#54662C]"
-          : "bg-[#FDF6E3] text-[#8B5A2B]"
-    }`}>
-      {isComplete ? "Complete" : isPaid ? "Paid" : "Unpaid"}
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[normalized]}`}
+    >
+      {labels[normalized] || "Unknown"}
     </span>
   );
 }

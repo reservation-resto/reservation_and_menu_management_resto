@@ -18,12 +18,13 @@ export default function CustomerMenu() {
   const nav = useNavigate();
   const {t, i18n} = useTranslation();
   const [menu, setMenu] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [showGoTop, setShowGoTop] = useState(false);
   const [tableValid, setTableValid] = useState(false);
   const lang = (i18n.language || "en").split("-")[0];
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [cart, setCart] = useState({}); // {menu_item_id: qty}
+  const [cart, setCart] = useState({}); // { menu_item_id: { quantity, note } }
   const [activeOrder, setActiveOrder] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
@@ -92,24 +93,54 @@ export default function CustomerMenu() {
   }, [menu, categories]);
 
   const cartItems = Object.entries(cart)
-    .map(([id, qty]) => {
-      const m = menu.find((x) => x.id === id);
-      return m && qty > 0 ? { ...m, quantity: qty } : null;
+    .map(([id, item]) => {
+      const menuItem = menu.find((x) => x.id === id);
+      return menuItem && item.quantity > 0
+        ? { ...menuItem, quantity: item.quantity, note: item.note || "" }
+        : null;
     })
     .filter(Boolean);
 
   const cartTotal = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const cartCount = cartItems.reduce((s, i) => s + i.quantity, 0);
 
-  const inc = (id) => setCart((c) => {
+  const inc = (id) => setCart((current) => {
     const item = menu.find((x) => x.id === id);
-    if (item?.available === false) return c;
-    return { ...c, [id]: (c[id] || 0) + 1 };
+
+    if (item?.available === false) return current;
+
+    const previous = current[id] || { quantity: 0, note: "" };
+
+    return {
+      ...current,
+      [id]: {
+        ...previous,
+        quantity: previous.quantity + 1,
+      },
+    };
   });
-  const dec = (id) => setCart((c) => {
-    const next = { ...c, [id]: Math.max(0, (c[id] || 0) - 1) };
-    if (next[id] === 0) delete next[id];
+
+  const dec = (id) => setCart((current) => {
+    const previous = current[id] || { quantity: 0, note: "" };
+    const quantity = Math.max(0, previous.quantity - 1);
+
+    const next = { ...current, [id]: { ...previous, quantity } };
+
+    if (quantity === 0) delete next[id];
+
     return next;
+  });
+
+  const updateNote = (id, note) => setCart((current) => {
+    const previous = current[id] || { quantity: 0, note: "" };
+
+    return {
+      ...current,
+      [id]: {
+        ...previous,
+      note,
+      },
+    };
   });
 
   const submitOrder = async () => {
@@ -121,7 +152,11 @@ export default function CustomerMenu() {
     setSubmitting(true);
     const hadActiveOrder = !!activeOrder;
     try {
-      const items = cartItems.map((i) => ({ menu_item_id: i.id, quantity: i.quantity }));
+      const items = cartItems.map((item) => ({
+        menu_item_id: item.id,
+        quantity: item.quantity,
+        note: item.note.trim(),
+      }));
       if (activeOrder) {
         const { data } = await api.post(`/orders/${activeOrder.id}/items`, { items });
         setActiveOrder(data);
@@ -303,14 +338,29 @@ export default function CustomerMenu() {
               )}
               {grouped[c.value].map((item) => (
                 <div key={item.id} className="bg-white border border-[#E5E0D8] rounded-sm p-4 flex gap-4" data-testid={`menu-item-${item.id}`}>
-                  {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-24 h-24 md:w-28 md:h-28 object-cover rounded-sm flex-shrink-0" />
-                  ) : (
-                    <div className="w-24 h-24 md:w-28 md:h-28 bg-[#F2F0EC] rounded-sm flex-shrink-0" />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItem(item)}
+                    aria-label={`View ${item.name} details`}
+                    className="flex-shrink-0 cursor-zoom-in"
+                  >
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="w-24 h-24 md:w-28 md:h-28 object-cover rounded-sm"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 md:w-28 md:h-28 bg-[#F2F0EC] rounded-sm" />
+                    )}
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline gap-3">
-                      <h3 className="font-serif-jp text-xl md:text-2xl">{item.name}</h3>
+                      <h3 className="font-serif-jp text-xl md:text-2xl">
+                        <button type="button" onClick={() => setSelectedItem(item)} className="text-left">
+                          {item.name}
+                        </button>
+                      </h3>
                       <div className="font-serif-jp text-lg whitespace-nowrap">{formatJPY(item.price)}</div>
                     </div>
                     {item.available === false && (
@@ -318,12 +368,18 @@ export default function CustomerMenu() {
                         Out of stock
                       </div>
                     )}
-                    <p className="text-xs text-[#8A817C] mt-1 line-clamp-2">{item.description}</p>
+                    <p className="text-xs text-[#8A817C] mt-1 line-clamp-2">
+                      <button type="button" onClick={() => setSelectedItem(item)} className="text-left">
+                          {item.description}
+                      </button>
+                    </p>
                     <div className="mt-3 flex justify-end">
                       {cart[item.id] ? (
                         <div className="flex items-center gap-3 border border-[#E5E0D8] rounded-sm">
                           <button onClick={() => dec(item.id)} className="w-9 h-9 flex items-center justify-center hover:bg-[#F2F0EC]" data-testid={`dec-${item.id}`}><Minus size={14} /></button>
-                          <span className="text-sm font-semibold w-6 text-center">{cart[item.id]}</span>
+                          <span className="text-sm font-semibold w-6 text-center">
+                            {cart[item.id].quantity}
+                          </span>
                           <button onClick={() => inc(item.id)} disabled={item.available === false} className="w-9 h-9 flex items-center justify-center hover:bg-[#F2F0EC] disabled:cursor-not-allowed disabled:opacity-40" data-testid={`inc-${item.id}`}><Plus size={14} /></button>
                         </div>
                       ) : (
@@ -368,14 +424,25 @@ export default function CustomerMenu() {
           <div className="mt-6 space-y-3 max-h-[50vh] overflow-y-auto">
             {cartItems.map((i) => (
               <div key={i.id} className="flex justify-between items-center bg-white border border-[#E5E0D8] p-3 rounded-sm">
-                <div className="flex-1">
+                <div className="flex-m mr-4 min-w-0">
                   <div className="font-medium text-sm">{i.name}</div>
                   <div className="text-xs text-[#8A817C]">{formatJPY(i.price)} {t('each')}</div>
                   {i.available === false && (
                     <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[#C93A3E]">Out of stock</div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 border border-[#E5E0D8] rounded-sm">
+                <div className="flex-1 min-w-0 ml-4">
+                  <input
+                    type="text"
+                    value={i.note || ""}
+                    onChange={(event) => updateNote(i.id, event.target.value)}
+                    placeholder="Add note"
+                    maxLength={120}
+                    className="mt-2 w-full border border-[#E5E0D8] rounded-sm px-3 py-2 text-xs"
+                    aria-label={`Note for ${i.name}`}
+                  />
+                </div>
+                <div className="flex ml-4 items-center gap-2 border border-[#E5E0D8] rounded-sm">
                   <button onClick={() => dec(i.id)} className="w-8 h-8 flex items-center justify-center"><Minus size={14} /></button>
                   <span className="text-sm font-semibold w-6 text-center">{i.quantity}</span>
                   <button onClick={() => inc(i.id)} disabled={i.available === false} className="w-8 h-8 flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-40"><Plus size={14} /></button>
@@ -433,6 +500,40 @@ export default function CustomerMenu() {
                 </Button>
               </div> */}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Menu Preview Modal */}
+      <Dialog
+        open={!!selectedItem}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSelectedItem(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-sm">
+          {selectedItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-serif-jp text-2xl">
+                  {selectedItem.name}
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedItem.image_url && (
+                <img
+                  src={selectedItem.image_url}
+                  alt={selectedItem.name}
+                  className="max-h-[60vh] w-full rounded-sm object-contain"
+                />
+              )}
+
+              <p className="whitespace-pre-wrap text-sm text-[#8A817C]">
+                {selectedItem.description || "No description available."}
+              </p>
+
+              <p className="font-serif-jp text-xl">{formatJPY(selectedItem.price)}</p>
+            </>
           )}
         </DialogContent>
       </Dialog>
