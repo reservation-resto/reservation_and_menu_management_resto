@@ -45,12 +45,14 @@ const hashPassword = (pw) => bcrypt.hashSync(pw, 10);
 const verifyPassword = (pw, hash) => bcrypt.compareSync(pw, hash);
 
 const ORDER_STATUS = {
-  UNPAID: "unpaid",
+  NEW_ORDER: "new_order",
+  PREPARED_ORDER: "prepared_order",
   PAID: "paid",
   COMPLETE: "complete",
 };
 
-const isOpenOrder = (status) => [ORDER_STATUS.UNPAID, "ordered"].includes(status);
+const isOpenOrder = (status) =>
+  [ORDER_STATUS.NEW_ORDER, ORDER_STATUS.PREPARED_ORDER].includes(status);
 
 const createAccessToken = (userId, email) =>
   jwt.sign({ sub: userId, email, type: "access" }, JWT_SECRET, {
@@ -361,7 +363,7 @@ api.post(
       table_number,
       items,
       total: calcTotal(items),
-      status: ORDER_STATUS.UNPAID,
+      status: ORDER_STATUS.NEW_ORDER,
       payment_method: null,
       start_time: nowIso(),
       finish_time: null,
@@ -379,7 +381,7 @@ api.get(
     if (!Number.isFinite(table_number)) return res.status(400).json({ detail: "Invalid table_number" });
     const doc = await db
       .collection("orders")
-      .findOne({ table_number, status: { $in: [ORDER_STATUS.UNPAID, "ordered"] } }, { projection: { _id: 0 } });
+      .findOne({ table_number, status: { $in: [ORDER_STATUS.NEW_ORDER, "ordered"] } }, { projection: { _id: 0 } });
     res.json(doc); // may be null
   })
 );
@@ -409,6 +411,18 @@ api.get(
   })
 );
 
+api.delete(
+  "/orders/:id",
+  requireAuth,
+  asyncH(async (req, res) => {
+    const result = await db.collection("orders").deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ detail: "Order not found" });
+    }
+    res.json({ ok: true });
+  })
+);
+
 api.post(
   "/orders/:id/items",
   asyncH(async (req, res) => {
@@ -419,9 +433,19 @@ api.post(
     if (!newItems.length) return res.status(400).json({ detail: "No valid items to add" });
     const allItems = order.items.concat(newItems);
     const total = calcTotal(allItems);
-    await db.collection("orders").updateOne({ id: req.params.id }, { $set: { items: allItems, total } });
+    await db.collection("orders").updateOne(
+      { id: req.params.id },
+      {
+        $set: {
+          items: allItems,
+          total,
+          status: ORDER_STATUS.NEW_ORDER,
+        },
+      }
+    );
     order.items = allItems;
     order.total = total;
+    order.status = ORDER_STATUS.NEW_ORDER;
     res.json(order);
   })
 );
@@ -450,7 +474,14 @@ api.patch(
   requireAuth,
   asyncH(async (req, res) => {
     const status = req.body.status;
-    if (![ORDER_STATUS.UNPAID, ORDER_STATUS.PAID, ORDER_STATUS.COMPLETE].includes(status)) {
+    if (
+      ![
+        ORDER_STATUS.NEW_ORDER,
+        ORDER_STATUS.PREPARED_ORDER,
+        ORDER_STATUS.PAID,
+        ORDER_STATUS.COMPLETE,
+      ].includes(status)
+    ) {
       return res.status(400).json({ detail: "Invalid order status" });
     }
     const order = await db.collection("orders").findOne({ id: req.params.id }, { projection: { _id: 0 } });
@@ -464,7 +495,7 @@ api.patch(
     if (status === ORDER_STATUS.COMPLETE) {
       update.finish_time = order.finish_time || nowIso();
     }
-    if (status === ORDER_STATUS.UNPAID) {
+    if (status === ORDER_STATUS.PREPARED_ORDER || status === ORDER_STATUS.NEW_ORDER) {
       update.payment_method = null;
       update.finish_time = null;
     }

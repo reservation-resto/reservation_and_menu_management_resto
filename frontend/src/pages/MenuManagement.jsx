@@ -18,6 +18,7 @@ const emptyForm = { name: "", description: "", price: "", category: "main", imag
 
 export default function MenuManagement() {
   const [items, setItems] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -146,14 +147,33 @@ export default function MenuManagement() {
               <tr key={item.id} className="border-b border-[#E5E0D8] last:border-0" data-testid={`menu-row-${item.id}`}>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-4">
+                    <button
+                    type="button"
+                    onClick={() => setSelectedItem(item)}
+                    aria-label={`View ${item.name} details`}
+                    className="flex-shrink-0 cursor-zoom-in"
+                  >
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="w-14 h-14 object-cover rounded-sm" />
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="w-15 h-15 md:w-20 md:h-20 object-cover rounded-sm"
+                      />
                     ) : (
-                      <div className="w-14 h-14 bg-[#F2F0EC] rounded-sm" />
+                      <div className="w-15 h-15 md:w-20 md:h-20 bg-[#F2F0EC] rounded-sm" />
                     )}
+                  </button>
                     <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-xs text-[#8A817C] line-clamp-1 max-w-xs">{item.description}</div>
+                      <div className="font-medium">
+                        <button type="button" onClick={() => setSelectedItem(item)} className="text-left">
+                          {item.name}
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#8A817C] line-clamp-1 max-w-xs">
+                        <button type="button" onClick={() => setSelectedItem(item)} className="text-left">
+                          {item.description}
+                      </button>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -230,6 +250,7 @@ export default function MenuManagement() {
         ))}
       </div>
 
+      {/* Edit Modal */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-sm max-w-lg" data-testid="menu-form-dialog">
           <DialogHeader>
@@ -305,6 +326,40 @@ export default function MenuManagement() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Menu Preview Modal */}
+      <Dialog
+        open={!!selectedItem}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSelectedItem(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-sm">
+          {selectedItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-serif-jp text-2xl">
+                  {selectedItem.name}
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedItem.image_url && (
+                <img
+                  src={selectedItem.image_url}
+                  alt={selectedItem.name}
+                  className="max-h-[60vh] w-full rounded-sm object-contain"
+                />
+              )}
+
+              <p className="whitespace-pre-wrap text-sm text-[#8A817C]">
+                {selectedItem.description || "No description available."}
+              </p>
+
+              <p className="font-serif-jp text-xl">{formatJPY(selectedItem.price)}</p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>      
     </div>
   );
 }
