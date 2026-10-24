@@ -12,6 +12,7 @@ const jwt = require("jsonwebtoken");
 const { MongoClient } = require("mongodb");
 const { randomUUID } = require("crypto");
 const path = require("path");
+const { printTestReceipt, printJapaneseTest, printOrderReceipt } = require('./printer');
 
 const PORT = 8001;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -110,6 +111,51 @@ const calcTotal = (items) => items.reduce((s, i) => s + i.price * i.quantity, 0)
 const api = express.Router();
 
 api.get("/", (_req, res) => res.json({ message: "Tsuki Restaurant API" }));
+
+// Test endpoint: POST /api/printer/test
+
+// Printer API
+api.post(
+  "/printer/test",
+  asyncH(async (req, res) => {
+    try {
+    const message = await printTestReceipt();
+
+    res.json({
+      success: true,
+      message
+    });
+  } catch (error) {
+    console.error('Receipt printing failed:', error.message);
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+  })
+);
+
+api.post(
+  "/printer/test/jp",
+  asyncH(async (req, res) => {
+    try {
+    const message = await printJapaneseTest();
+
+    res.json({
+      success: true,
+      message
+    });
+  } catch (error) {
+    console.error('Receipt printing failed:', error.message);
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+  })
+);
 
 // Auth
 api.post(
@@ -355,9 +401,21 @@ api.post(
   "/orders",
   asyncH(async (req, res) => {
     const table_number = parseInt(req.body.table_number, 10);
-    if (!Number.isFinite(table_number)) return res.status(400).json({ detail: "Invalid table_number" });
+
+    if (!Number.isFinite(table_number)) {
+      return res.status(400).json({
+        detail: "Invalid table_number",
+      });
+    }
+
     const items = await buildOrderItems(req.body.items);
-    if (!items.length) return res.status(400).json({ detail: "Order must contain at least one item" });
+
+    if (!items.length) {
+      return res.status(400).json({
+        detail: "Order must contain at least one item",
+      });
+    }
+
     const order = {
       id: randomUUID(),
       table_number,
@@ -368,8 +426,20 @@ api.post(
       start_time: nowIso(),
       finish_time: null,
     };
+
+    // Save the order first.
     await db.collection("orders").insertOne(order);
+
+    // Return the order even if printing fails.
     delete order._id;
+
+    void printOrderReceipt(order).catch((error) => {
+      console.error(
+        `[Receipt] Failed to print new order ${order.id}:`,
+        error
+      );
+    });
+
     res.json(order);
   })
 );
@@ -426,13 +496,32 @@ api.delete(
 api.post(
   "/orders/:id/items",
   asyncH(async (req, res) => {
-    const order = await db.collection("orders").findOne({ id: req.params.id }, { projection: { _id: 0 } });
-    if (!order) return res.status(404).json({ detail: "Order not found" });
-    if (!isOpenOrder(order.status)) return res.status(400).json({ detail: "Cannot add items to a closed order" });
+    const order = await db.collection("orders").findOne(
+      { id: req.params.id },
+      { projection: { _id: 0 } }
+    );
+
+    if (!order) {
+      return res.status(404).json({ detail: "Order not found" });
+    }
+
+    if (!isOpenOrder(order.status)) {
+      return res.status(400).json({
+        detail: "Cannot add items to a closed order",
+      });
+    }
+
     const newItems = await buildOrderItems(req.body.items);
-    if (!newItems.length) return res.status(400).json({ detail: "No valid items to add" });
+
+    if (!newItems.length) {
+      return res.status(400).json({
+        detail: "No valid items to add",
+      });
+    }
+
     const allItems = order.items.concat(newItems);
     const total = calcTotal(allItems);
+
     await db.collection("orders").updateOne(
       { id: req.params.id },
       {
@@ -443,9 +532,21 @@ api.post(
         },
       }
     );
+
     order.items = allItems;
     order.total = total;
     order.status = ORDER_STATUS.NEW_ORDER;
+
+    // Print only the newly added items.
+    void printOrderReceipt(order, {
+      items: newItems,
+      heading: "ADDED ITEMS",
+    }).then((result) => {
+      console.log(`[Receipt] Additional items printed for order ${order.id}`, result);
+    }).catch((error) => {
+      console.error(`[Receipt] Failed to print additional items for order ${order.id}:`, error);
+    });
+
     res.json(order);
   })
 );
