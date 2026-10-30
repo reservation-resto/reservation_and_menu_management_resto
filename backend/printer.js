@@ -195,8 +195,8 @@ function buildOrderReceipt(order, options = {}) {
   chunks.push(line(`Table: ${order.table_number}`));
   chunks.push(line(`Order: ${String(order.id).slice(0, 12)}`));
 
-  const orderTime = order.start_time
-    ? new Date(order.start_time).toLocaleString("en-GB")
+  const orderTime = order.added_at
+    ? new Date(order.added_at).toLocaleString("en-GB")
     : new Date().toLocaleString("en-GB");
 
   for (const part of wrapText(`Time: ${orderTime}`)) {
