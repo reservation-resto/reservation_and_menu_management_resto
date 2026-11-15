@@ -876,7 +876,7 @@ async function main() {
   console.log(`Connected to MongoDB ${DB_NAME}`);
   await seed();
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Tsuki API listening on http://0.0.0.0:${PORT}`);
+    console.log(`Sumatra Restaurant API listening on http://0.0.0.0:${PORT}`);
   });
 }
 

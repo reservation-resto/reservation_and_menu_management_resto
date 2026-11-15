@@ -34,7 +34,7 @@ export default function Login() {
         className="hidden md:block relative"
         style={{
           backgroundImage:
-            "url('https://static.prod-images.emergentagent.com/jobs/2f57949b-850e-45f2-821a-37f7619e4a5c/images/77d79035e50340634e30acbc5051fe105574b01fb52a32f313c65202b664a62e.png')",
+            "url('/images/IMG_8979.PNG')",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}

@@ -197,17 +197,34 @@ export default function CustomerMenu() {
 
   if (tableValid == false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9F8F6] p-8" data-testid="no-table">
-        <div className="max-w-sm text-center">
-          <div className="label-eyebrow mb-3">Sumatera Cafe Resto</div>
-          <h1 className="font-serif-jp text-3xl mb-2">いらっしゃいませ !</h1>
-          <p className="text-sm text-[#8A817C] mb-6">
-            テーブルにあるQRコードを読み取ってください。<br></br>または、レストランのスタッフにお声がけください。
-          </p>
-          <h1 className="font-serif-jp text-3xl mb-2">Welcome !</h1>
-          <p className="text-sm text-[#8A817C] mb-6">
-            Please scan the QR code on your table. <br></br>Or contact the restaurant staff.
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-[#F9F8F6] p-8"
+        data-testid="no-table"
+        style={{
+          backgroundImage:
+          "linear-gradient(rgba(249, 248, 246, 0.70), rgba(249, 248, 246, 0.70)), url('/images/IMG_8979.PNG')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        >
+        <div className="max-w-sm text-center"
+          style={{
+            backgroundImage:
+            "linear-gradient(rgba(249, 248, 246, 0.80), rgba(249, 248, 246, 0.80))",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="mr-6 ml-6">
+            <div className="label-eyebrow mb-3 mt-6"><strong>Sumatera Cafe Resto</strong></div>
+            <h1 className="font-serif-jp text-3xl mb-2">いらっしゃいませ !</h1>
+            <p className="text-sm text-[#8A817C] mb-6">
+              テーブルにあるQRコードを読み取ってください。<br></br>または、レストランのスタッフにお声がけください。
+            </p>
+            <h1 className="font-serif-jp text-3xl mb-2">Welcome !</h1>
+            <p className="text-sm text-[#8A817C] mb-6">
+             Please scan the QR code on your table. <br></br>Or contact the restaurant staff.
+            </p>            
+          </div>          
         </div>
       </div>
     );
@@ -237,17 +254,27 @@ export default function CustomerMenu() {
 )}
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] pb-32" data-testid="customer-menu-page">
+    <div
+      className="min-h-screen bg-[#F9F8F6] pb-32"
+      data-testid="customer-menu-page"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(249, 248, 246, 0.90), rgba(249, 248, 246, 0.90)), url('/images/IMG_8979.PNG')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       {/* Hero */}
-      <div className="relative h-56 sm:h-64 md:h-80 overflow-hidden">
+      <div className="relative h-64 sm:h-72 md:h-96 overflow-hidden">
         <img
-          src="https://images.unsplash.com/photo-1512132411229-c30391241dd8?w=1600&q=80"
+          src="/images/IMG_8979.PNG"
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover scale-96"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/30 to-black/60" />
         <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-10 text-white">
-          <div className="label-eyebrow text-white/70 mb-2">Sumatera Cafe Resto</div>
+          <div className="text-white mb-2">Sumatera Cafe Resto</div>
           <h1 className="font-serif-jp text-4xl md:text-5xl" data-testid="customer-table-title">
             {t('table')} <strong>#{tableNumber}</strong> · <br></br>{t('welcome')} !
           </h1>

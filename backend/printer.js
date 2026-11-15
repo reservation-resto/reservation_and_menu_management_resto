@@ -141,7 +141,7 @@ function buildTestReceipt() {
   // Centered, bold heading.
   chunks.push(command(ESC, 0x61, 0x01));
   chunks.push(command(ESC, 0x45, 0x01));
-  chunks.push(line("SUMATRA RESTAURANT"));
+  chunks.push(line("SUMATERA CAFE RESTO"));
   chunks.push(command(ESC, 0x45, 0x00));
 
   chunks.push(line("USB ESC/POS TEST"));
@@ -186,7 +186,7 @@ function buildOrderReceipt(order, options = {}) {
   // Restaurant title and receipt heading.
   chunks.push(Buffer.from([ESC, 0x61, 0x01]));
   chunks.push(Buffer.from([ESC, 0x45, 0x01]));
-  chunks.push(line("SUMATRA RESTAURANT"));
+  chunks.push(line("SUMATERA CAFE RESTO"));
   chunks.push(Buffer.from([ESC, 0x45, 0x00]));
   chunks.push(line(heading));
 
