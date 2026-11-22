@@ -114,7 +114,7 @@ api.get("/", (_req, res) => res.json({ message: "Tsuki Restaurant API" }));
 
 // Test endpoint: POST /api/printer/test
 
-// Printer API
+// ===========Printer API ===========
 api.post(
   "/printer/test",
   asyncH(async (req, res) => {
@@ -157,7 +157,7 @@ api.post(
   })
 );
 
-// Auth
+// =========== Auth ===========
 api.post(
   "/auth/login",
   asyncH(async (req, res) => {
@@ -184,7 +184,7 @@ api.get(
   })
 );
 
-// Menu
+// =========== Menu ===========
 api.get(
   "/menu",
   asyncH(async (_req, res) => {
@@ -251,7 +251,9 @@ api.delete(
   })
 );
 
-// Categories
+// =========== Categories ===========
+
+//Get all categories
 api.get(
   "/categories",
   asyncH(async (_req, res) => {
@@ -260,6 +262,7 @@ api.get(
   })
 );
 
+//Create a new category
 api.post(
   "/categories",
   requireAuth,
@@ -294,6 +297,7 @@ api.post(
   })
 );
 
+//Update a category by ID
 api.put(
   "/categories/:id",
   requireAuth,
@@ -311,6 +315,7 @@ api.put(
       return res.status(400).json({ detail: "name_id must be a string" });
     }
 
+    const oldSlug = existing.slug;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const dup = await db.collection("categories").findOne({ slug, id: { $ne: req.params.id } });
     if (dup) return res.status(400).json({ detail: "Category name already exists" });
@@ -327,10 +332,20 @@ api.put(
     const r = await db.collection("categories").updateOne({ id: req.params.id }, { $set: update });
     if (r.matchedCount === 0) return res.status(404).json({ detail: "Category not found" });
     const doc = await db.collection("categories").findOne({ id: req.params.id }, { projection: { _id: 0 } });
+
+    //Changing the slug of the menu as well
+    if (slug !== oldSlug) {
+      await db.collection("menu_items").updateMany(
+        { category: oldSlug },
+        { $set: { category: slug } }
+      );
+    }
+
     res.json(doc);
   })
 );
 
+//Delete a category by ID
 api.delete(
   "/categories/:id",
   requireAuth,
@@ -344,7 +359,7 @@ api.delete(
   })
 );
 
-// Tables
+// =========== Tables ===========
 api.get(
   "/tables",
   requireAuth,
@@ -396,7 +411,8 @@ api.get(
 
 
 
-// Orders
+// ===========Orders===========
+//Create a new order
 api.post(
   "/orders",
   asyncH(async (req, res) => {
@@ -444,6 +460,7 @@ api.post(
   })
 );
 
+//Get the active order 
 api.get(
   "/orders/active",
   asyncH(async (req, res) => {
@@ -456,6 +473,7 @@ api.get(
   })
 );
 
+// Get all orders, optionally filter by status
 api.get(
   "/orders",
   requireAuth,
@@ -472,6 +490,7 @@ api.get(
   })
 );
 
+// Get an order by ID
 api.get(
   "/orders/:id",
   asyncH(async (req, res) => {
@@ -481,6 +500,7 @@ api.get(
   })
 );
 
+// Delete an order by ID
 api.delete(
   "/orders/:id",
   requireAuth,
@@ -493,6 +513,7 @@ api.delete(
   })
 );
 
+// Add items to an existing order
 api.post(
   "/orders/:id/items",
   asyncH(async (req, res) => {
@@ -551,6 +572,7 @@ api.post(
   })
 );
 
+// Change the order status to payment
 api.post(
   "/orders/:id/pay",
   asyncH(async (req, res) => {
@@ -566,7 +588,38 @@ api.post(
     const update = { status: ORDER_STATUS.PAID, payment_method: method, finish_time: nowIso() };
     await db.collection("orders").updateOne({ id: req.params.id }, { $set: update });
     Object.assign(order, update);
+    
+    void printOrderReceipt(order, {
+      heading: "PAYMENT RECEIPT",
+    }).catch((error) => {
+      console.error(
+        `[Receipt] Failed to print paid order ${order.id}:`,
+        error
+      );
+    });
     res.json(order);
+  })
+);
+
+// Reprint the receipt for an order
+api.post(
+  "/orders/:id/receipt",
+  requireAuth,
+  asyncH(async (req, res) => {
+    const order = await db.collection("orders").findOne(
+      { id: req.params.id },
+      { projection: { _id: 0 } }
+    );
+
+    if (!order) {
+      return res.status(404).json({ detail: "Order not found" });
+    }
+
+    await printOrderReceipt(order, {
+      heading: "REPRINT RECEIPT",
+    });
+
+    res.json({ ok: true });
   })
 );
 
@@ -607,7 +660,7 @@ api.patch(
   })
 );
 
-// Analytics
+// =========== Analytics ===========
 api.get(
   "/analytics/summary",
   requireAuth,

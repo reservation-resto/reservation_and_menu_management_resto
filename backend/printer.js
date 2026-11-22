@@ -175,6 +175,35 @@ function buildTestReceipt() {
   return Buffer.concat(chunks);
 }
 
+function qrCodeCommands(data) {
+  const encoded = Buffer.from(String(data), "ascii");
+  const storeLength = encoded.length + 3;
+  const chunks = [];
+
+  // QR model 2
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]));
+
+  // QR module size: 8
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]));
+
+  // Error correction: M
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x33]));
+
+  // Store the QR data
+  chunks.push(Buffer.from([
+    GS, 0x28, 0x6B,
+    storeLength & 0xff,
+    (storeLength >> 8) & 0xff,
+    0x31, 0x50, 0x30,
+  ]));
+  chunks.push(encoded);
+
+  // Print the QR code
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]));
+
+  return chunks;
+}
+
 function buildOrderReceipt(order, options = {}) {
   const receiptItems = options.items ?? order.items ?? [];
   const heading = options.heading ?? "NEW ORDER";
@@ -194,6 +223,8 @@ function buildOrderReceipt(order, options = {}) {
   chunks.push(separator());
   chunks.push(line(`Table: ${order.table_number}`));
   chunks.push(line(`Order: ${String(order.id).slice(0, 12)}`));
+
+  const qrData = String(Math.round(Number(order.total) || 0));
 
   const orderTime = order.added_at
     ? new Date(order.added_at).toLocaleString("en-GB")
@@ -220,11 +251,32 @@ function buildOrderReceipt(order, options = {}) {
   chunks.push(line("Thank you!"));
   chunks.push(Buffer.from([ESC, 0x61, 0x00]));
 
+  //QR code total of the order
+  
+  chunks.push(Buffer.from([ESC, 0x61, 0x01]));
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]));
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x08]));
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30]));
+  chunks.push(Buffer.from([
+    GS, 0x28, 0x6B,
+    ...Buffer.from([0x00, 0x00]),
+    0x31, 0x50, 0x30,
+  ]));
+  chunks.push(Buffer.from(qrData));
+  chunks.push(Buffer.from([0x00]));
+  chunks.push(Buffer.from([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]));
+  chunks.push(line(""));
+  chunks.push(Buffer.from([ESC, 0x61, 0x00]));
+
+  //New QR Code
+  chunks.push(Buffer.from([ESC, 0x61, 0x01]));
+  chunks.push(...qrCodeCommands(qrData));
+  chunks.push(line(""));
+  chunks.push(Buffer.from([ESC, 0x61, 0x00]));
+
   // Keep the cut command that worked on your printer.
   chunks.push(Buffer.from([GS, 0x56, 0x41, 0x00]));
 
-  // Feed paper and cut.
-  chunks.push(Buffer.from([0x1d, 0x56, 0x41, 0x00]));
 
   return Buffer.concat(chunks);
 }

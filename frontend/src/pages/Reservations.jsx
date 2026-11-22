@@ -4,7 +4,8 @@ import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Receipt, Download, FileSpreadsheet, Trash2 } from "lucide-react";
+import { Receipt, Download, FileSpreadsheet, Trash2, LucideQrCode } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import * as XLSX from "xlsx-js-style";
 
 // Returns the date string (YYYY-MM-DD) relevant to an order's current status.
@@ -32,6 +33,7 @@ export default function Reservations() {
   const [dateTo, setDateTo] = useState("");
   const knownOrderIds = useRef(new Set());
   const hasLoadedOrders = useRef(false);
+  const [showQr, setShowQr] = useState(true);
 
   const load = async () => {
     try {
@@ -66,6 +68,17 @@ export default function Reservations() {
     return () => clearInterval(t);
   }, []);
 
+  const printReceipt = async (order) => {
+    try {
+      await api.post(`/orders/${order.id}/receipt`);
+      toast.success("Receipt printed");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.detail || "Failed to print receipt"
+      );
+    }
+  };
+  
   const markStatus = async (order, status, paymentMethod) => {
     try {
       await api.patch(`/orders/${order.id}/status`, {
@@ -615,14 +628,15 @@ export default function Reservations() {
       </div>
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="rounded-sm max-w-lg" data-testid="order-detail-dialog">
-          <DialogHeader>
+        <DialogContent className="rounded-sm max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+          data-testid="order-detail-dialog">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="font-serif-jp text-2xl">
               Table #{selected?.table_number}
             </DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <div className="label-eyebrow mb-1">Started</div>
@@ -668,6 +682,26 @@ export default function Reservations() {
                 <div className="label-eyebrow">Total</div>
                 <div className="font-serif-jp text-3xl">{formatJPY(selected.total)}</div>
               </div>
+              <div className="flex justify-end">
+                <Button
+                onClick={() => printReceipt(selected)}
+                variant="outline"
+                className="w-full rounded-sm h-11"
+                >
+                  <Receipt size={16} className="mr-2" />
+                  Print Receipt
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-sm h-11"
+                  onClick={() => setShowQr((visible) => !visible)}
+                >
+                  <LucideQrCode size={16} className="mr-2" />
+                  {showQr ? "Hide QR" : "Show QR"}
+                </Button>
+              </div>
 
               {normalizeOrderStatus(selected.status) === "new_order" && (
                 <div className="flex gap-2 pt-4">
@@ -708,6 +742,19 @@ export default function Reservations() {
               {normalizeOrderStatus(selected.status) === "paid" && selected.payment_method && (
                 <div className="text-xs text-[#8A817C]">
                   {selected.payment_method === "verified" ? "Verified by staff." : `Paid via ${selected.payment_method}.`}
+                </div>
+              )}
+
+              {showQr && (
+                <div className="flex flex-col items-center gap-2 rounded-sm border border-[#E5E0D8] bg-white p-4">
+                  <QRCodeCanvas
+                    value={String(Math.round(Number(selected?.total) || 0))}
+                    size={150}
+                    level="M"
+                  />
+                  <div className="text-xs text-[#8A817C]">
+                    Total: {formatJPY(selected.total)}
+                  </div>
                 </div>
               )}
             </div>
