@@ -22,7 +22,7 @@ export default function CustomerMenu() {
   const [showGoTop, setShowGoTop] = useState(false);
   const [tableValid, setTableValid] = useState(false);
   const lang = (i18n.language || "en").split("-")[0];
-  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(true);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState({}); // { menu_item_id: { quantity, note } }
   const [activeOrder, setActiveOrder] = useState(null);
@@ -168,7 +168,9 @@ export default function CustomerMenu() {
       }
       setCart({});
       setCartOpen(false);
-      if (!hadActiveOrder) setPayOpen(true);
+      setSelectedItem(null);
+      setPayOpen(false);
+      
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Order failed");
     } finally {
