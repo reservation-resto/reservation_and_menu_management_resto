@@ -14,6 +14,8 @@
   --text-muted: #8A817C;
   --aka: #C93A3E;
   --aka-hover: #A32A2D;
+  --midori: #057f03;
+  --midori-hover: #13a310;
   --border-subtle: #E5E0D8;
   --paid-bg: #F2F4EC;
   --paid-text: #54662C;
@@ -66,6 +68,14 @@ body {
 }
 .btn-aka:hover { background-color: var(--aka-hover); }
 .btn-aka:disabled { background-color: #d9a3a4; cursor: not-allowed; }
+
+.btn-midori {
+  background-color: var(--midori);
+  color: #fff;
+  transition: background-color 200ms ease;
+}
+.btn-midori:hover { background-color: var(--midori-hover); }
+.btn-midori:disabled { background-color: #a3d9ab; cursor: not-allowed; }
 
 .divider-sumi {
   height: 1px;

@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Minus, ShoppingBag, ArrowUp, Menu } from "lucide-react";
+import { Plus, Minus, ShoppingBag, ArrowUp, Menu, Loader2 } from "lucide-react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 import { decodeTableId } from "../lib/utils";
@@ -31,12 +31,14 @@ export default function CustomerMenu() {
   const [payOpen, setPayOpen] = useState(false);
   const [qrisOpen, setQrisOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingMenu, setLoadingMenu] = useState(true);
 
   const [debugError, setDebugError] = useState(null);
 
   const goToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const loadAll = useCallback(async () => {
+    setLoadingMenu(true);
     try {
       const [m, o, c] = await Promise.all([
         api.get("/menu"),
@@ -61,6 +63,8 @@ export default function CustomerMenu() {
       });
       console.error("loadAll error:", err);
       toast.error(detail);
+    } finally {
+      setLoadingMenu(false)
     }
   }, [activeCategory, tableNumber, lang]);
 
@@ -254,6 +258,26 @@ export default function CustomerMenu() {
     <div>Status: {debugError.status ?? "none"}</div>
   </div>
 )}
+
+if (loadingMenu) {
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center"
+      role="status"
+      aria-live="polite"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(249, 248, 246, 0.90), rgba(249, 248, 246, 0.90)), url('/images/IMG_8979.PNG')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <Loader2 className="h-8 w-8 animate-spin text-[#C93A3E]" />
+      <p className="mt-3 text-sm text-[#8A817C]">Loading menu...</p>
+    </div>
+  );
+}
 
   return (
     <div
