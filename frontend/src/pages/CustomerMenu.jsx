@@ -52,7 +52,9 @@ export default function CustomerMenu() {
         label: cat[`name_${lang}`] || cat.name || cat.label || cat.slug,
       }));
       setCategories(cats);
-      if (cats.length > 0 && !activeCategory) setActiveCategory(cats[0].value);
+      if (cats.length > 0) {
+        setActiveCategory((current) => current || cats[0].value);
+      }
     } catch (err) {
       const detail = err?.response?.data?.detail || err?.message || "Failed to load customer menu";
       setDebugError({
@@ -66,7 +68,7 @@ export default function CustomerMenu() {
     } finally {
       setLoadingMenu(false)
     }
-  }, [activeCategory, tableNumber, lang]);
+  }, [tableNumber, lang]);
 
   useEffect( () => {
     const validateAndLoad = async () => {
