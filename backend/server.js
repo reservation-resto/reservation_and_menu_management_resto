@@ -315,6 +315,15 @@ api.put(
       return res.status(400).json({ detail: "name_id must be a string" });
     }
 
+    const existing = await db.collection("categories").findOne(
+      { id: req.params.id },
+      { projection: { _id: 0, slug: 1 } }
+    );
+
+    if (!existing) {
+      return res.status(404).json({ detail: "Category not found" });
+    }
+
     const oldSlug = existing.slug;
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const dup = await db.collection("categories").findOne({ slug, id: { $ne: req.params.id } });

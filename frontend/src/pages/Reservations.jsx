@@ -704,15 +704,33 @@ export default function Reservations() {
               </div>
 
               {normalizeOrderStatus(selected.status) === "new_order" && (
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    onClick={() => markStatus(selected, "prepared_order")}
-                    className="btn-aka flex-1 rounded-sm h-11"
-                    data-testid="admin-mark-prepared"
-                  >
-                    Mark Prepared
-                  </Button>
+                <div>
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={() => markStatus(selected, "prepared_order")}
+                      variant="outline"
+                      className="btn-plain flex-1 rounded-sm h-11"
+                      data-testid="admin-mark-prepared"
+                    >
+                      Mark Prepared
+                    </Button>
+
+                    <Button
+                      onClick={() => markStatus(selected, "paid", "verified")}
+                      className="btn-midori flex-1 rounded-sm h-11"
+                      data-testid="admin-pay-cashier"
+                    >
+                      Mark Paid
+                    </Button>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <Button onClick={() => markStatus(selected, "complete")} className="btn-aka flex-1 rounded-sm h-11" data-testid="admin-complete">
+                      Mark Complete
+                    </Button>
+                  </div>
                 </div>
+                
               )}
 
               {normalizeOrderStatus(selected.status) === "prepared_order" && (
@@ -720,7 +738,7 @@ export default function Reservations() {
                   <Button
                     onClick={() => markStatus(selected, "paid", "verified")}
                     variant="outline"
-                    className="flex-1 rounded-sm h-11"
+                    className="btn-midori flex-1 rounded-sm h-11"
                     data-testid="admin-pay-cashier"
                   >
                     Verify Paid
